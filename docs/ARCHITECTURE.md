@@ -1,70 +1,109 @@
 # Architecture
 
-The project is deliberately small. It patches an existing
-`stonegray/fusion360-linux` installation rather than replacing the upstream
-launcher.
+The project has two layers:
 
-## Flow
+1. a **fresh-install bootstrap** around `stonegray/fusion360-linux`;
+2. an **idempotent runtime patcher** for existing installations.
+
+It does not fork or redistribute Autodesk Fusion.
+
+## Fresh-install flow
 
 ```text
-existing fusion360-linux
-        |
-        v
-fusion360_arch_fix.py
+install.sh
+   |
+   +-- existing install? ---- yes ---> fusion360_arch_fix.py apply/check
+   |
+   no
+   v
+fusion360_bootstrap.py
+   |
+   +--> verify Arch-family host / desktop / sudo
+   +--> clone pinned stonegray/fusion360-linux
+   +--> patch upstream source before installation
+   |      +--> Arch package list
+   |      +--> WINEDLLOVERRIDES
+   |      +--> prefix-scoped process shutdown
+   |      +--> Toolwindow Fixer safeguards
+   |      +--> callback/browser log redaction
+   |      +--> safe upstream --kill
+   |
+   +--> run upstream full installer
+   |      +--> system dependencies
+   |      +--> GE-Proton
+   |      +--> Proton prefix / winetricks
+   |      +--> WebView2/runtime setup
+   |      +--> official Autodesk Fusion downloader
+   |      +--> desktop/file associations
+   |
+   +--> patch installed runtime again
+   +--> bcp47langs Wine registry override
+   +--> gio callback associations
+   +--> syntax + configuration checks
+   +--> verify Fusion360.exe
+   +--> install maintenance commands + provenance
+   v
+ready local installation
+```
+
+## Existing-install flow
+
+```text
+fusion360_arch_fix.py apply
         |
         +--> timestamped backup
-        |
         +--> config compatibility values
-        |
         +--> launcher WINEDLLOVERRIDES fix
-        |
-        +--> prefix-scoped Wine cleanup
-        |
+        +--> prefix-scoped cleanup/process management
         +--> Toolwindow Fixer safeguards
-        |
+        +--> callback/browser log redaction
         +--> Autodesk callback registration via gio
-        |
         +--> bcp47langs Wine registry override
-        |
-        +--> bash syntax validation
+        +--> Bash syntax validation
         v
 patched local installation
 ```
 
 ## Design goals
 
-### Idempotent
+### Reproducible bootstrap
 
-Running the patcher repeatedly should not duplicate configuration lines or add
-repeated shell fragments.
+The default full installer uses a pinned upstream commit. Users can opt into
+upstream `dev`, but the pin is safer because source transforms target a known
+file layout.
 
-### Minimal
+### Idempotent runtime repair
 
-Only known compatibility problems are changed. Autodesk application files are
-not modified.
+Running the runtime patcher repeatedly should not duplicate configuration lines
+or shell fragments.
 
-### Reversible files
+### Minimal Autodesk surface
 
-Before each apply, files that may be changed are copied into a timestamped
-backup directory with a manifest.
+Autodesk application files under `webdeploy` are not patched. The project
+changes Linux-side launcher/helper scripts, the Fusion Wine prefix configuration
+and desktop protocol associations.
+
+### Reversible file changes
+
+Before each runtime apply, files that may be changed are copied into a
+timestamped backup with a manifest.
 
 ### Prefix isolation
 
-Shutdown logic is scoped to the configured Fusion Wine prefix. The project
-avoids generic process matching such as every `wine`, `proton`, `node.exe`
-or `steam-runtime` process owned by the user.
+Shutdown logic targets only the configured Fusion Wine prefix. Generic matching
+of all user-owned `wine`, `proton`, `node.exe` or `steam-runtime` processes is
+deliberately avoided.
 
-### Explicit login bridge
+### Authentication privacy
 
-Autodesk browser callbacks are associated with the desktop callback handler via
-`gio mime`. The Wine registry also carries the `bcp47langs` override so
-Autodesk Identity Manager does not depend only on inherited launcher
-environment variables.
+The callback itself must contain a real short-lived authentication URL to work,
+but helper logs do not need to store it. The privacy patch preserves the
+transient request flow while redacting raw browser/callback URLs and arguments.
 
-## What is intentionally not patched
+## Intentionally untouched
 
-- Autodesk binaries;
-- Fusion application payloads under `webdeploy`;
-- third-party Vulkan layers;
+- Autodesk Fusion application payloads under `webdeploy`;
+- Autodesk account/licensing state;
 - global Wine configuration outside the Fusion prefix;
-- unrelated Steam/Proton prefixes.
+- unrelated Steam/Proton/Wine prefixes;
+- third-party Vulkan layers.
