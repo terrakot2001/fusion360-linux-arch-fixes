@@ -53,7 +53,7 @@ Protona w `fusion360-linux`.
 ```bash
 git clone https://github.com/terrakot2001/fusion360-linux-arch-fixes.git
 cd fusion360-linux-arch-fixes
-./install.sh
+bash install.sh
 ```
 
 Następnie uruchom Fusion normalnie:
@@ -67,7 +67,7 @@ Patcher jest idempotentny — ponowne uruchomienie nie powinno dublować zmian.
 ## Sprawdzenie instalacji
 
 ```bash
-./check.sh
+bash check.sh
 ```
 
 albo:
