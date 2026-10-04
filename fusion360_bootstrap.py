@@ -186,6 +186,11 @@ def patch_upstream_tree(source: Path) -> None:
     patch_file(source / "share/process.fn", fixes.patch_process_text, "process isolation")
     patch_file(source / "share/daemon.fn", fixes.patch_daemon_text, "Toolwindow Fixer")
     patch_file(
+        source / "src/runtime/fusion-browser.sh",
+        fixes.patch_browser_writer_privacy_text,
+        "browser request privacy",
+    )
+    patch_file(
         source / "src/runtime/fusion-browser-listener.sh",
         fixes.patch_listener_privacy_text,
         "browser/callback log privacy",
@@ -203,6 +208,7 @@ def patch_upstream_tree(source: Path) -> None:
         source / "share/process.fn",
         source / "share/daemon.fn",
         source / "src/runtime/launcher-functions.sh",
+        source / "src/runtime/fusion-browser.sh",
         source / "src/runtime/fusion-browser-listener.sh",
         source / "src/runtime/fusion-callback-handler.sh",
     ]
