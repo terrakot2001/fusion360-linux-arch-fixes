@@ -21,7 +21,7 @@ import sys
 from typing import Dict, Iterable, List, Optional, Tuple
 
 PROJECT_NAME = "Fusion 360 Linux Arch Fixes"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 
 def log(msg: str) -> None:
@@ -49,7 +49,9 @@ def default_paths(home: Optional[Path] = None) -> Dict[str, Path]:
         "config": home / ".config/fusion360-linux/config",
         "launcher": base / "runtime-scripts/launcher-functions.sh",
         "cleanup": base / "share/cleanup.fn",
+        "process": base / "share/process.fn",
         "daemon": base / "share/daemon.fn",
+        "listener": base / "runtime-scripts/fusion-browser-listener.sh",
         "callback": base / "runtime-scripts/fusion-callback-handler.sh",
         "arch_deps": base / "src/install/distro/arch.txt",
         "callback_desktop": home
@@ -165,6 +167,7 @@ def patch_arch_deps_text(text: str) -> Tuple[str, bool]:
     lines = text.splitlines()
     changed = False
     out = []
+    stripped = [line.strip() for line in lines]
     for line in lines:
         if line.strip() == "python3-tk":
             prefix = line[: len(line) - len(line.lstrip())]
@@ -172,8 +175,136 @@ def patch_arch_deps_text(text: str) -> Tuple[str, bool]:
             changed = True
         else:
             out.append(line)
+    # gio is used for reliable Autodesk callback registration on Arch.
+    if "glib2" not in stripped:
+        out.append("glib2")
+        changed = True
     suffix = "\n" if text.endswith("\n") else ""
     return "\n".join(out) + suffix, changed
+
+
+def patch_process_text(text: str) -> Tuple[str, bool]:
+    marker = "# Fusion Arch Fixes: prefix-scoped process shutdown"
+    if marker in text:
+        return text, False
+
+    start = text.find("kill_fusion_processes() {")
+    end_marker = "# ── Installer-specific kill"
+    end = text.find(end_marker, start)
+    if start < 0 or end < 0:
+        raise ValueError("process.fn: kill_fusion_processes section not found")
+
+    line_start = text.rfind("\n", 0, start) + 1
+    end_line_start = text.rfind("\n", 0, end) + 1
+    function = r'''# Fusion Arch Fixes: prefix-scoped process shutdown
+kill_fusion_processes() {
+  local pfx_root="${PFX_DIR:-${STEAM_COMPAT_DATA_PATH:-$HOME/.fusion360-proton2}}"
+  local prefix="$pfx_root/pfx"
+  local wineserver_bin=""
+
+  # Prefer the exact Proton configured for Fusion.
+  if [[ -n "${PROTON:-}" ]]; then
+    local proton_dir="${PROTON%/*}"
+    if [[ -x "$proton_dir/files/bin/wineserver" ]]; then
+      wineserver_bin="$proton_dir/files/bin/wineserver"
+    fi
+  fi
+
+  # During installation PROTON may not be exported yet.  Resolve the Proton
+  # installed in Fusion's compatibility-tools directory without touching
+  # unrelated Wine/Proton prefixes.
+  if [[ -z "$wineserver_bin" && -n "${COMPAT_DIR:-}" && -d "$COMPAT_DIR" ]]; then
+    wineserver_bin="$(find "$COMPAT_DIR" -path '*/files/bin/wineserver' -type f -print 2>/dev/null | sort | tail -n 1 || true)"
+  fi
+
+  if [[ -n "$wineserver_bin" && -x "$wineserver_bin" && -d "$prefix" ]]; then
+    WINEPREFIX="$prefix" "$wineserver_bin" -k 2>/dev/null || true
+    sleep 0.5
+    return 0
+  fi
+
+  # Last-resort fallback: only the wineserver lock belonging to this prefix.
+  local ws="$prefix/.wineserver.lock"
+  if [[ -f "$ws" ]]; then
+    local ws_pid
+    ws_pid="$(head -1 "$ws" 2>/dev/null || true)"
+    if [[ "$ws_pid" =~ ^[0-9]+$ ]]; then
+      kill "$ws_pid" 2>/dev/null || true
+    fi
+  fi
+  return 0
+}
+
+'''
+    return text[:line_start] + function + text[end_line_start:], True
+
+
+def patch_listener_privacy_text(text: str) -> Tuple[str, bool]:
+    original = text
+    text = text.replace(
+        "    printf 'url=%q\\n' \"$url\"\n"
+        '    echo "url_first300=${url:0:300}"\n'
+        '    echo "url_last300=${url: -300}"\n',
+        '    echo "url=[redacted query; len=${#url}]"\n',
+    )
+    text = text.replace(
+        '    echo "url=$url"\n',
+        '    echo "url=[redacted query; len=${#url}]"\n',
+    )
+    text = text.replace(
+        "    printf 'callback_url=%q\\n' \"$callback_url\"\n",
+        '    echo "callback_url=[redacted; len=${#callback_url}]"\n',
+    )
+    return text, text != original
+
+
+def patch_callback_privacy_text(text: str) -> Tuple[str, bool]:
+    marker = '  echo "arguments_redacted=true"'
+    if marker in text:
+        return text, False
+
+    start = text.find("  argument_index=0\n")
+    end_token = '  echo "--- env dump ---"'
+    end = text.find(end_token, start)
+    if start < 0 or end < 0:
+        raise ValueError("callback handler: argument logging section not found")
+
+    replacement = '''  echo "arguments_redacted=true"
+  argument_index=0
+  for argument in "$@"; do
+    echo "argv[${argument_index}]=[redacted]"
+    echo "argv[${argument_index}]_len=${#argument}"
+    argument_index=$((argument_index + 1))
+  done
+
+'''
+    return text[:start] + replacement + text[end:], True
+
+
+def patch_upstream_install_text(text: str) -> Tuple[str, bool]:
+    """Make upstream's manual --kill mode prefix-scoped too."""
+    marker = "# Fusion Arch Fixes: safe --kill"
+    if marker in text:
+        return text, False
+
+    start = text.find('if [[ "${1:-}" == "--kill" ]]; then')
+    end_token = 'MODE="${1:-}"'
+    end = text.find(end_token, start)
+    if start < 0 or end < 0:
+        raise ValueError("upstream install.sh: --kill section not found")
+
+    line_start = text.rfind("\n", 0, start) + 1
+    replacement = r'''# Fusion Arch Fixes: safe --kill
+if [[ "${1:-}" == "--kill" ]]; then
+  source "$SCRIPT_DIR/src/install/00-common.sh"
+  echo "Stopping Wine processes only in the Fusion 360 prefix..."
+  kill_fusion_processes || true
+  exit 0
+fi
+
+
+'''
+    return text[:line_start] + replacement + text[end:], True
 
 
 def write_if_changed(path: Path, new_text: str) -> bool:
@@ -310,7 +441,10 @@ def syntax_check(files: Iterable[Path]) -> bool:
 
 
 def apply(paths: Dict[str, Path]) -> int:
-    required = [paths["config"], paths["launcher"], paths["cleanup"], paths["daemon"]]
+    required = [
+        paths["config"], paths["launcher"], paths["cleanup"], paths["process"],
+        paths["daemon"], paths["listener"], paths["callback"],
+    ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
         fail("fusion360-linux installation not found or incomplete:\n  " + "\n  ".join(missing))
@@ -318,7 +452,10 @@ def apply(paths: Dict[str, Path]) -> int:
 
     backup = backup_files(
         paths,
-        [paths["config"], paths["launcher"], paths["cleanup"], paths["daemon"], paths["arch_deps"]],
+        [
+            paths["config"], paths["launcher"], paths["cleanup"], paths["process"],
+            paths["daemon"], paths["listener"], paths["callback"], paths["arch_deps"],
+        ],
     )
     log(f"Backup: {backup}")
 
@@ -341,9 +478,21 @@ def apply(paths: Dict[str, Path]) -> int:
     write_if_changed(paths["cleanup"], new)
     ok("prefix-scoped cleanup")
 
+    new, _ = patch_process_text(paths["process"].read_text())
+    write_if_changed(paths["process"], new)
+    ok("prefix-scoped process shutdown")
+
     new, _ = patch_daemon_text(paths["daemon"].read_text())
     write_if_changed(paths["daemon"], new)
     ok("toolwindow fixer safeguards")
+
+    new, _ = patch_listener_privacy_text(paths["listener"].read_text())
+    write_if_changed(paths["listener"], new)
+    ok("browser/callback log redaction")
+
+    new, _ = patch_callback_privacy_text(paths["callback"].read_text())
+    write_if_changed(paths["callback"], new)
+    ok("callback argument log redaction")
 
     if paths["arch_deps"].exists():
         new, changed = patch_arch_deps_text(paths["arch_deps"].read_text())
@@ -363,7 +512,10 @@ def apply(paths: Dict[str, Path]) -> int:
     cfg = parse_config_text(paths["config"].read_text())
     apply_registry_override(paths, cfg)
 
-    shell_files = [paths["launcher"], paths["cleanup"], paths["daemon"], paths["callback"]]
+    shell_files = [
+        paths["launcher"], paths["cleanup"], paths["process"], paths["daemon"],
+        paths["listener"], paths["callback"],
+    ]
     if not syntax_check(shell_files):
         fail("syntax check failed; use restore to revert the backup")
         return 3
@@ -377,9 +529,15 @@ def apply(paths: Dict[str, Path]) -> int:
 def check(paths: Dict[str, Path]) -> int:
     checks: List[Tuple[str, bool, bool]] = []  # name, pass, essential
 
-    for key in ["config", "launcher", "cleanup", "daemon"]:
+    for key in ["config", "launcher", "cleanup", "process", "daemon", "listener", "callback"]:
         checks.append((f"exists: {paths[key]}", paths[key].exists(), True))
-    if not all(p.exists() for p in [paths["config"], paths["launcher"], paths["cleanup"], paths["daemon"]]):
+    if not all(
+        p.exists()
+        for p in [
+            paths["config"], paths["launcher"], paths["cleanup"], paths["process"],
+            paths["daemon"], paths["listener"], paths["callback"],
+        ]
+    ):
         for name, status, _ in checks:
             (ok if status else fail)(name)
         return 2
@@ -403,15 +561,28 @@ def check(paths: Dict[str, Path]) -> int:
     checks.append(("cleanup is prefix-scoped", "# Stop Wine only for the Fusion prefix." in cleanup, True))
     checks.append(("cleanup does not call broad kill_fusion_processes", "kill_fusion_processes || true" not in cleanup, True))
 
+    process = paths["process"].read_text()
+    checks.append(("process shutdown is prefix-scoped", "# Fusion Arch Fixes: prefix-scoped process shutdown" in process, True))
+
     daemon = paths["daemon"].read_text()
     checks.append(("unscoped duplicate toolwindow spawn removed", 'nohup "$wine_bin" "$FUSION_TOOLWINDOW_FIXER" &>/dev/null &' not in daemon, True))
     checks.append(("toolwindow health restart honors enable flag", '_is_enabled "$FUSION_ENABLE_TOOLWINDOW_FIXER" && ! daemon_check_running "toolwindow-fixer"' in daemon, True))
+
+    listener = paths["listener"].read_text()
+    checks.append(("listener does not log raw callback URLs", "printf 'callback_url=%q" not in listener, True))
+    checks.append(("listener does not log browser URL query samples", "url_first300=" not in listener and "url_last300=" not in listener, True))
+
+    callback = paths["callback"].read_text()
+    checks.append(("callback handler redacts arguments", "arguments_redacted=true" in callback and "printf 'argv[%d]=%q" not in callback, True))
 
     if paths["arch_deps"].exists():
         arch = paths["arch_deps"].read_text().splitlines()
         checks.append(("Arch dependency uses tk, not python3-tk", "python3-tk" not in [x.strip() for x in arch], False))
 
-    shell_ok = syntax_check([paths["launcher"], paths["cleanup"], paths["daemon"], paths["callback"]])
+    shell_ok = syntax_check([
+        paths["launcher"], paths["cleanup"], paths["process"], paths["daemon"],
+        paths["listener"], paths["callback"],
+    ])
     checks.append(("bash syntax", shell_ok, True))
 
     # MIME association check via gio (locale independent enough: search desktop id in output).
