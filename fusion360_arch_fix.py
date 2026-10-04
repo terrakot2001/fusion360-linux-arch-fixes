@@ -298,7 +298,7 @@ def patch_listener_privacy_text(text: str) -> Tuple[str, bool]:
     )
     if 'chmod 700 "$BROWSER_REQUEST_DIR"' not in text and mkdir_block in text:
         secure = mkdir_block + "\n" + "\n".join(
-            f'chmod 700 "${{name}}" 2>/dev/null || true' for name in dirs
+            f'chmod 700 "${name}" 2>/dev/null || true' for name in dirs
         ) + '\ntouch "$LOG_FILE"\nchmod 600 "$LOG_FILE" 2>/dev/null || true'
         text = text.replace(mkdir_block, secure, 1)
 
@@ -380,7 +380,7 @@ def write_if_changed(path: Path, new_text: str) -> bool:
 def backup_files(paths: Dict[str, Path], files: Iterable[Path]) -> Path:
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     backup = paths["backup_root"] / stamp
-    backup.mkdir(parents=True, exist_ok=False)
+    backup.mkdir(mode=0o700, parents=True, exist_ok=False)
 
     manifest = {"created": stamp, "version": VERSION, "files": []}
     for i, path in enumerate(files):
@@ -653,7 +653,7 @@ def check(paths: Dict[str, Path]) -> int:
 
     shell_ok = syntax_check([
         paths["launcher"], paths["cleanup"], paths["process"], paths["daemon"],
-        paths["listener"], paths["callback"],
+        paths["browser"], paths["listener"], paths["callback"],
     ])
     checks.append(("bash syntax", shell_ok, True))
 
