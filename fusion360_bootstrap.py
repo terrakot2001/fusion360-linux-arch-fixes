@@ -250,11 +250,15 @@ def install_maintenance_tools(project_root: Path, upstream_sha: str, upstream_re
     bin_dir = home / ".local/bin"
     config_dir = home / ".config/fusion360-linux"
     data.mkdir(parents=True, exist_ok=True)
+    (data / "scripts").mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
     config_dir.mkdir(parents=True, exist_ok=True)
 
     shutil.copy2(project_root / "fusion360_arch_fix.py", data / "fusion360_arch_fix.py")
-    shutil.copy2(project_root / "scripts/collect-diagnostics.sh", data / "collect-diagnostics.sh")
+    shutil.copy2(
+        project_root / "scripts/collect-diagnostics.sh",
+        data / "scripts/collect-diagnostics.sh",
+    )
 
     wrappers = {
         "fusion360-arch-check": f'''#!/usr/bin/env bash
@@ -268,7 +272,7 @@ exec python3 "{data / 'fusion360_arch_fix.py'}" check
 ''',
         "fusion360-arch-diagnostics": f'''#!/usr/bin/env bash
 set -euo pipefail
-exec bash "{data / 'collect-diagnostics.sh'}" "$@"
+exec bash "{data / 'scripts/collect-diagnostics.sh'}" "$@"
 ''',
         "fusion360-safe-stop": f'''#!/usr/bin/env bash
 set -euo pipefail
