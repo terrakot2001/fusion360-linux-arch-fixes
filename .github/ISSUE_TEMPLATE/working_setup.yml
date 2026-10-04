@@ -1,0 +1,113 @@
+name: Working setup report
+description: Share a configuration where Fusion works with these fixes
+title: "[WORKS] "
+labels:
+  - documentation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Working reports help build a real compatibility matrix.
+
+        Do not include Autodesk callback URLs, account IDs, access tokens, email addresses or private project data.
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and version
+      placeholder: CachyOS ...
+    validations:
+      required: true
+
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel
+      description: Output of `uname -r`
+      placeholder: 6.x.x-...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: desktop
+    attributes:
+      label: Desktop environment
+      options:
+        - KDE Plasma 6
+        - GNOME
+        - XFCE
+        - Cinnamon
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: display
+    attributes:
+      label: Display protocol
+      options:
+        - Wayland
+        - X11
+        - Unknown
+    validations:
+      required: true
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU and driver
+      placeholder: NVIDIA RTX 3080 Ti, proprietary 590.xx
+    validations:
+      required: true
+
+  - type: input
+    id: proton
+    attributes:
+      label: Proton / Wine version
+      placeholder: GE-Proton10-32
+    validations:
+      required: true
+
+  - type: input
+    id: upstream
+    attributes:
+      label: stonegray/fusion360-linux version or commit
+      placeholder: commit/tag/date
+    validations:
+      required: true
+
+  - type: input
+    id: patcher
+    attributes:
+      label: fusion360-linux-arch-fixes version
+      description: Output of `python3 fusion360_arch_fix.py --version`
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: check_output
+    attributes:
+      label: Patcher check output
+      render: text
+      description: Paste `python3 fusion360_arch_fix.py check`
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: features
+    attributes:
+      label: What works?
+      options:
+        - label: Fusion starts successfully
+        - label: Autodesk sign-in works
+        - label: Projects open/save normally
+        - label: 3D viewport renders correctly
+        - label: Fusion closes without killing unrelated Proton/Wine apps
+        - label: Restart works without manual cleanup
+
+  - type: textarea
+    id: quirks
+    attributes:
+      label: Remaining quirks
+      description: Mention overlay/z-order issues, rendering warnings, login oddities, or anything else.
