@@ -1,0 +1,51 @@
+name: Feature request
+description: Suggest an improvement to the Arch/CachyOS compatibility layer
+title: "[FEATURE] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Please keep requests focused on the compatibility layer around `stonegray/fusion360-linux`.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What limitation or recurring problem would this improve?
+      placeholder: When Fusion is started on..., I currently have to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you would like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional workarounds or other approaches you have tried.
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution
+      placeholder: CachyOS / Arch / EndeavourOS / Manjaro / other
+
+  - type: input
+    id: proton
+    attributes:
+      label: Proton / Wine version
+      placeholder: GE-Proton...
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Links, screenshots, upstream references, or technical notes.
