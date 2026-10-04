@@ -20,8 +20,8 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Compile
@@ -33,7 +33,7 @@ jobs:
     name: Bash and ShellCheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Bash syntax
@@ -48,7 +48,7 @@ jobs:
     steps:
       - name: Install test dependencies
         run: pacman -Syu --noconfirm git python bash shellcheck
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Compile and unit tests
         run: |
           python -m py_compile fusion360_arch_fix.py fusion360_bootstrap.py
@@ -63,8 +63,8 @@ jobs:
     name: Pinned upstream patch smoke test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Clone pinned upstream and apply source patches twice
