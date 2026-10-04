@@ -12,3 +12,8 @@ Initial public version.
 - Autodesk callback registration through `gio`.
 - Backup, verify and restore commands.
 - Arch/CachyOS troubleshooting documentation.
+- Privacy-conscious local diagnostics collector.
+- Bug, support, feature-request and working-setup issue forms.
+- Pull-request template, support/security policies and tested-config matrix.
+- Ubuntu/Python matrix, ShellCheck and Arch Linux CI smoke tests.
+- Automated source release workflow for version tags.
