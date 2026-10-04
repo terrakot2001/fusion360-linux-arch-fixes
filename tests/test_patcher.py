@@ -1,9 +1,31 @@
+import os
+from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
 
 import fusion360_arch_fix as f
 
 
 class PatcherTests(unittest.TestCase):
+    def test_default_paths_honor_xdg(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            data = root / "data"
+            config = root / "config"
+            with patch.dict(
+                os.environ,
+                {"XDG_DATA_HOME": str(data), "XDG_CONFIG_HOME": str(config)},
+                clear=False,
+            ):
+                paths = f.default_paths(root / "home")
+            self.assertEqual(paths["base"], data / "fusion360-linux")
+            self.assertEqual(paths["config"], config / "fusion360-linux/config")
+            self.assertEqual(
+                paths["callback_desktop"],
+                data / "applications/fusion360-linux/fusion360-callback-handler.desktop",
+            )
+
     def test_config_updates_are_idempotent(self):
         src = "A=1\nFUSION_ENABLE_TOOLWINDOW_FIXER=1\n"
         updates = {
@@ -112,6 +134,7 @@ mkdir -p "$REQUEST_DIR"
         self.assertIn("umask 077", out)
         self.assertIn('chmod 700 "$REQUEST_DIR"', out)
         self.assertIn('chmod 600 "$LOG_FILE"', out)
+        self.assertIn('$XDG_RUNTIME_DIR/fusion360-linux', out)
         self.assertIn("arguments_redacted=true", out)
         self.assertNotIn("first200", out)
         out2, changed2 = f.patch_browser_writer_privacy_text(out)
@@ -167,6 +190,37 @@ mkdir -p "$CALLBACK_PROCESSED_DIR"
         self.assertNotIn("last200", out)
         out2, changed2 = f.patch_callback_privacy_text(out)
         self.assertFalse(changed2)
+
+    def test_callback_handler_tolerates_unset_desktop_variables(self):
+        src = '''#!/usr/bin/env bash
+set -euo pipefail
+CALLBACK_DIR="/tmp/fusion360-callback-requests"
+LOG_FILE="/tmp/fusion-callback-handler.log"
+mkdir -p "$CALLBACK_DIR"
+  argument_index=0
+  for argument in "$@"; do
+    printf 'argv[%d]=%q\\n' "$argument_index" "$argument"
+    argument_index=$((argument_index + 1))
+  done
+
+  echo "--- env dump ---"
+  echo "KDE_SESSION_VERSION=$KDE_SESSION_VERSION"
+  echo "WAYLAND_DISPLAY=$WAYLAND_DISPLAY"
+  echo "DISPLAY=$DISPLAY"
+  echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+  echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"
+'''
+        out, changed = f.patch_callback_privacy_text(src)
+        self.assertTrue(changed)
+        for variable in (
+            "KDE_SESSION_VERSION",
+            "WAYLAND_DISPLAY",
+            "DISPLAY",
+            "XDG_RUNTIME_DIR",
+            "DBUS_SESSION_BUS_ADDRESS",
+        ):
+            self.assertIn(f'${{{variable}:-}}', out)
+        self.assertIn('$XDG_RUNTIME_DIR/fusion360-linux', out)
 
     def test_upstream_install_kill_mode_is_safe(self):
         src = '''SCRIPT_DIR="/tmp/source"
