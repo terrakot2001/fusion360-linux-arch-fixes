@@ -1,5 +1,9 @@
 # Fusion 360 Linux Arch Fixes
 
+[![tests](https://github.com/terrakot2001/fusion360-linux-arch-fixes/actions/workflows/tests.yml/badge.svg)](https://github.com/terrakot2001/fusion360-linux-arch-fixes/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform: Arch Linux](https://img.shields.io/badge/platform-Arch%20Linux-1793D1.svg)](https://archlinux.org/)
+
 [Polski README](README_PL.md)
 
 Unofficial compatibility fixes for running **Autodesk Fusion 360** with
@@ -89,6 +93,15 @@ python3 fusion360_arch_fix.py check
 
 A healthy installation should report `[OK]` for the essential checks.
 
+For a privacy-conscious support report, generate diagnostics locally:
+
+```bash
+bash scripts/collect-diagnostics.sh
+```
+
+The script does **not** upload anything. Review the generated file before
+attaching it to an issue.
+
 ## Backups and rollback
 
 Every `apply` creates a timestamped backup under:
@@ -151,6 +164,25 @@ because the affected version can spawn many copies of
 or tutorial overlays may have imperfect z-order under Wine; keyboard navigation
 with `Tab`, `Space`, `Enter` or `Esc` can be used as a workaround.
 
+## Documentation
+
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Known issues](docs/KNOWN_ISSUES.md)
+- [Tested configurations](docs/TESTED_CONFIGS.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Updating safely](docs/UPDATING.md)
+- [Support policy](SUPPORT.md)
+- [Security and privacy](SECURITY.md)
+- [Roadmap](docs/ROADMAP.md)
+
+## Contributing
+
+Bug reports, working-setup reports, feature requests and pull requests are
+welcome. GitHub issue forms collect the environment details needed to compare
+Arch configurations without requiring users to paste sensitive login data.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Supported scope
 
 This project is intentionally narrow. It targets the currently observed Arch
@@ -171,6 +203,13 @@ This project is meant as a small compatibility layer for:
 - <https://github.com/stonegray/fusion360-linux>
 
 If upstream incorporates a fix, the corresponding patch here can be retired.
+
+## Releases
+
+Pushing a version tag such as `v0.1.0` triggers the release workflow, which
+creates ZIP and tar.gz source archives plus SHA-256 checksums.
+
+See [docs/RELEASING.md](docs/RELEASING.md).
 
 ## License
 
