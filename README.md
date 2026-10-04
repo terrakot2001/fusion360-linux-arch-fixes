@@ -11,9 +11,10 @@ Unofficial compatibility fixes for running **Autodesk Fusion 360** with
 **Arch Linux and Arch-based distributions** such as CachyOS, EndeavourOS and
 Manjaro.
 
-This project does **not** distribute Autodesk Fusion, Autodesk binaries, Wine,
-or Proton. It only patches launcher/helper scripts in an existing
-`fusion360-linux` installation.
+This project now provides both a **full fresh-install bootstrap** and an
+**idempotent repair layer** for existing installations. It does **not**
+redistribute Autodesk Fusion, Autodesk binaries, Wine, or Proton; the fresh
+bootstrap delegates the actual Fusion download/install to upstream and Autodesk.
 
 > Tested on Arch/CachyOS, KDE Plasma 6 on Wayland, NVIDIA GPU, GE-Proton 10-32,
 > with Fusion 360 in October 2026.
@@ -38,28 +39,19 @@ installation:
 - registers Autodesk `adsk://` and `adskidmgr://` callback handlers with `gio`,
   which works around broken `xdg-mime` setups such as missing `qtpaths`;
 - creates timestamped backups before changing files;
-- verifies modified shell scripts with `bash -n`.
+- verifies modified shell scripts with `bash -n`;
+- redacts raw Autodesk callback/browser authentication URLs from helper logs;
+- patches broad Wine/Proton shutdown into Fusion-prefix-scoped shutdown.
 
 ## Requirements
 
-You need an existing installation of `stonegray/fusion360-linux`, normally at:
+For a fresh install you need an Arch-family distribution, a graphical X11/Wayland
+session, internet access, a normal user account with `sudo`, and roughly 15 GB
+of free space. For an existing installation, the normal
+`~/.local/share/fusion360-linux` runtime is expected.
 
-```text
-~/.local/share/fusion360-linux
-```
-
-and its configuration file at:
-
-```text
-~/.config/fusion360-linux/config
-```
-
-You also need:
-
-- Python 3
-- Bash
-- `gio` from GLib for callback registration
-- a working Proton configuration in `fusion360-linux`
+The full bootstrap pins a known upstream revision by default for reproducible
+source patching. See [Full installation](docs/FULL_INSTALL.md).
 
 ## Quick start
 
@@ -70,6 +62,10 @@ git clone https://github.com/terrakot2001/fusion360-linux-arch-fixes.git
 cd fusion360-linux-arch-fixes
 bash install.sh
 ```
+
+`install.sh` is smart: on a fresh system it performs the complete upstream
+Fusion/Proton installation with our patches; when an installation already
+exists it switches to repair/update mode.
 
 Then start Fusion normally:
 
@@ -166,6 +162,7 @@ with `Tab`, `Space`, `Enter` or `Esc` can be used as a workaround.
 
 ## Documentation
 
+- [Full installation](docs/FULL_INSTALL.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Known issues](docs/KNOWN_ISSUES.md)
 - [Tested configurations](docs/TESTED_CONFIGS.md)
@@ -185,10 +182,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Supported scope
 
-This project is intentionally narrow. It targets the currently observed Arch
-issues around the `stonegray/fusion360-linux` launcher. It is not a complete
-Fusion installer and does not attempt to support every desktop environment,
-GPU driver or Proton build.
+This project owns the Arch-family bootstrap and compatibility layer around
+`stonegray/fusion360-linux`. It does not modify Autodesk application payloads,
+global Wine configuration, unrelated Proton prefixes, or third-party Vulkan
+layers.
 
 ## Security / privacy
 
@@ -206,7 +203,7 @@ If upstream incorporates a fix, the corresponding patch here can be retired.
 
 ## Releases
 
-Pushing a version tag such as `v0.1.0` triggers the release workflow, which
+Pushing a version tag such as `v0.2.0` triggers the release workflow, which
 creates ZIP and tar.gz source archives plus SHA-256 checksums.
 
 See [docs/RELEASING.md](docs/RELEASING.md).
