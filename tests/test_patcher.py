@@ -64,10 +64,81 @@ class PatcherTests(unittest.TestCase):
         src = "bash\npython3-tk\ntkinter-stuff\n"
         out, changed = f.patch_arch_deps_text(src)
         self.assertTrue(changed)
-        self.assertEqual(out, "bash\ntk\ntkinter-stuff\n")
+        self.assertEqual(out, "bash\ntk\ntkinter-stuff\nglib2\n")
         out2, changed2 = f.patch_arch_deps_text(out)
         self.assertFalse(changed2)
         self.assertEqual(out, out2)
+
+    def test_process_kill_is_replaced_with_prefix_scoped_version(self):
+        src = '''# header
+kill_fusion_processes() {
+  pgrep wine
+  kill -9 123
+}
+
+# ── Installer-specific kill ────────────────────────────────────────────
+kill_installer() {
+  kill_fusion_processes || true
+}
+'''
+        out, changed = f.patch_process_text(src)
+        self.assertTrue(changed)
+        self.assertIn("# Fusion Arch Fixes: prefix-scoped process shutdown", out)
+        self.assertIn('WINEPREFIX="$prefix" "$wineserver_bin" -k', out)
+        self.assertNotIn("pgrep wine", out)
+        out2, changed2 = f.patch_process_text(out)
+        self.assertFalse(changed2)
+        self.assertEqual(out, out2)
+
+    def test_listener_privacy_redacts_callback_and_browser_url(self):
+        src = '''    printf 'url=%q\\n' "$url"
+    echo "url_first300=${url:0:300}"
+    echo "url_last300=${url: -300}"
+    echo "url=$url"
+    printf 'callback_url=%q\\n' "$callback_url"
+'''
+        out, changed = f.patch_listener_privacy_text(src)
+        self.assertTrue(changed)
+        self.assertNotIn("url_first300=", out)
+        self.assertNotIn("url_last300=", out)
+        self.assertNotIn("callback_url=%q", out)
+        self.assertIn("redacted", out)
+
+    def test_callback_handler_redacts_arguments(self):
+        src = '''  argument_index=0
+  for argument in "$@"; do
+    printf 'argv[%d]=%q\\n' "$argument_index" "$argument"
+    echo "argv[${argument_index}]_len=${#argument}"
+    echo "argv[${argument_index}]_first200=${argument:0:200}"
+    echo "argv[${argument_index}]_last200=${argument: -200}"
+    argument_index=$((argument_index + 1))
+  done
+
+  echo "--- env dump ---"
+'''
+        out, changed = f.patch_callback_privacy_text(src)
+        self.assertTrue(changed)
+        self.assertIn("arguments_redacted=true", out)
+        self.assertNotIn("first200", out)
+        self.assertNotIn("last200", out)
+        out2, changed2 = f.patch_callback_privacy_text(out)
+        self.assertFalse(changed2)
+
+    def test_upstream_install_kill_mode_is_safe(self):
+        src = '''SCRIPT_DIR="/tmp/source"
+if [[ "${1:-}" == "--kill" ]]; then
+  pkill -9 -f wine
+  exit 0
+fi
+
+
+MODE="${1:-}"
+'''
+        out, changed = f.patch_upstream_install_text(src)
+        self.assertTrue(changed)
+        self.assertIn("# Fusion Arch Fixes: safe --kill", out)
+        self.assertIn("kill_fusion_processes || true", out)
+        self.assertNotIn("pkill -9 -f wine", out)
 
 
 if __name__ == "__main__":
