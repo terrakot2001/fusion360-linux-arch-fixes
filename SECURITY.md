@@ -34,3 +34,17 @@ including the sensitive details.
 The project-provided diagnostic script writes a local text file only. It does
 not upload anything. Review every diagnostic file before attaching it to an
 issue.
+
+
+## Private authentication bridge runtime
+
+The patched browser/callback bridge stores transient request files and its
+diagnostic logs under `$XDG_RUNTIME_DIR/fusion360-linux` when a desktop runtime
+directory is available. The directory and files are restricted to the current
+user. If `XDG_RUNTIME_DIR` is unavailable, the fallback is
+`/tmp/fusion360-linux-$UID` with ownership checks and restrictive permissions.
+
+Raw callback URLs and command-line callback arguments are redacted from helper
+logs. The request file itself still has to contain the real short-lived callback
+long enough for Autodesk Identity Manager to consume it, so it is treated as
+private transient data.
