@@ -1,5 +1,9 @@
 # Fusion 360 Linux Arch Fixes
 
+[![tests](https://github.com/terrakot2001/fusion360-linux-arch-fixes/actions/workflows/tests.yml/badge.svg)](https://github.com/terrakot2001/fusion360-linux-arch-fixes/actions/workflows/tests.yml)
+[![Licencja: MIT](https://img.shields.io/badge/licencja-MIT-blue.svg)](LICENSE)
+[![Platforma: Arch Linux](https://img.shields.io/badge/platforma-Arch%20Linux-1793D1.svg)](https://archlinux.org/)
+
 [English README](README.md)
 
 Nieoficjalny zestaw poprawek dla **Autodesk Fusion 360** uruchamianego przez
@@ -78,6 +82,15 @@ python3 fusion360_arch_fix.py check
 
 Najważniejsze kontrole powinny zakończyć się `[OK]`.
 
+Do zgłoszenia problemu możesz wygenerować lokalny raport diagnostyczny:
+
+```bash
+bash scripts/collect-diagnostics.sh
+```
+
+Skrypt **niczego nie wysyła**. Przejrzyj wygenerowany plik przed dołączeniem go
+do zgłoszenia.
+
 ## Backup i przywracanie
 
 Każde `apply` tworzy backup w:
@@ -146,11 +159,37 @@ Patcher nie wysyła logów, tokenów Autodesk, identyfikatorów konta, danych
 przeglądarki ani projektów użytkownika. Nie publikuj pełnych callbacków Autodesk
 w zgłoszeniach — mogą zawierać krótkotrwałe kody logowania i wartości `state`.
 
+## Dokumentacja
+
+- [Rozwiązywanie problemów](docs/TROUBLESHOOTING.md)
+- [Znane ograniczenia](docs/KNOWN_ISSUES.md)
+- [Przetestowane konfiguracje](docs/TESTED_CONFIGS.md)
+- [Architektura projektu](docs/ARCHITECTURE.md)
+- [Bezpieczne aktualizowanie](docs/UPDATING.md)
+- [Zasady wsparcia](SUPPORT.md)
+- [Bezpieczeństwo i prywatność](SECURITY.md)
+- [Plan rozwoju](docs/ROADMAP.md)
+
+## Współtworzenie
+
+Repozytorium ma gotowe formularze dla błędów, pytań, propozycji funkcji oraz
+raportów „u mnie działa”. Dzięki nim można budować rzeczywistą macierz
+kompatybilności Arch/CachyOS.
+
+Zobacz [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Zakres projektu
 
 To niewielka warstwa kompatybilności dla konkretnych problemów Arch/CachyOS z
 `stonegray/fusion360-linux`, a nie pełny instalator Fusion. Projekt nie próbuje
 obsługiwać wszystkich środowisk graficznych, sterowników GPU ani wersji Protona.
+
+## Wydania
+
+Wypchnięcie taga wersji, np. `v0.1.0`, uruchamia workflow tworzący GitHub
+Release z archiwami ZIP, tar.gz i sumami SHA-256.
+
+Instrukcja: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Licencja
 
