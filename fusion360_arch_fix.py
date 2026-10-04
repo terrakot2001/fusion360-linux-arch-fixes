@@ -316,7 +316,7 @@ def write_if_changed(path: Path, new_text: str) -> bool:
 
 
 def backup_files(paths: Dict[str, Path], files: Iterable[Path]) -> Path:
-    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     backup = paths["backup_root"] / stamp
     backup.mkdir(parents=True, exist_ok=False)
 
