@@ -106,6 +106,12 @@ def ensure_host() -> None:
 def ensure_bootstrap_dependencies() -> None:
     missing = [name for name in ("git", "bash") if shutil.which(name) is None]
     if missing:
+        if shutil.which("pacman") is None:
+            raise RuntimeError(
+                "Missing bootstrap dependencies: "
+                + ", ".join(missing)
+                + ". Automatic dependency installation is only supported on Arch-family hosts."
+            )
         info("Installing bootstrap dependencies: " + " ".join(missing))
         run(["sudo", "pacman", "-S", "--needed", "--noconfirm", *missing])
 
