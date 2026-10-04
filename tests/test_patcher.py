@@ -90,6 +90,34 @@ kill_installer() {
         self.assertFalse(changed2)
         self.assertEqual(out, out2)
 
+    def test_browser_writer_privacy_and_permissions(self):
+        src = '''#!/usr/bin/env bash
+set -euo pipefail
+REQUEST_DIR="/tmp/fusion360-browser-requests"
+LOG_FILE="/tmp/fusion-browser-bridge.log"
+mkdir -p "$REQUEST_DIR"
+  argument_index=0
+  for argument in "$@"; do
+    printf 'argv[%d]=%q\\n' "$argument_index" "$argument"
+    echo "argv[${argument_index}]_len=${#argument}"
+    echo "argv[${argument_index}]_first200=${argument:0:200}"
+    echo "argv[${argument_index}]_last200=${argument: -200}"
+    argument_index=$((argument_index + 1))
+  done
+
+  echo "--- env dump ---"
+'''
+        out, changed = f.patch_browser_writer_privacy_text(src)
+        self.assertTrue(changed)
+        self.assertIn("umask 077", out)
+        self.assertIn('chmod 700 "$REQUEST_DIR"', out)
+        self.assertIn('chmod 600 "$LOG_FILE"', out)
+        self.assertIn("arguments_redacted=true", out)
+        self.assertNotIn("first200", out)
+        out2, changed2 = f.patch_browser_writer_privacy_text(out)
+        self.assertFalse(changed2)
+        self.assertEqual(out, out2)
+
     def test_listener_privacy_redacts_callback_and_browser_url(self):
         src = '''    printf 'url=%q\\n' "$url"
     echo "url_first300=${url:0:300}"
@@ -103,6 +131,22 @@ kill_installer() {
         self.assertNotIn("url_last300=", out)
         self.assertNotIn("callback_url=%q", out)
         self.assertIn("redacted", out)
+
+    def test_listener_privacy_secures_bridge_directories(self):
+        src = '''#!/usr/bin/env bash
+set -euo pipefail
+LOG_FILE="/tmp/fusion-browser-listener.log"
+mkdir -p "$BROWSER_REQUEST_DIR"
+mkdir -p "$BROWSER_PROCESSED_DIR"
+mkdir -p "$CALLBACK_REQUEST_DIR"
+mkdir -p "$CALLBACK_PROCESSED_DIR"
+'''
+        out, changed = f.patch_listener_privacy_text(src)
+        self.assertTrue(changed)
+        self.assertIn("umask 077", out)
+        self.assertIn('chmod 700 "$BROWSER_REQUEST_DIR"', out)
+        self.assertIn('chmod 700 "$CALLBACK_REQUEST_DIR"', out)
+        self.assertNotIn('chmod 700 "$name"', out)
 
     def test_callback_handler_redacts_arguments(self):
         src = '''  argument_index=0
