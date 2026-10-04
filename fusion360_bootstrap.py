@@ -119,20 +119,33 @@ def ensure_bootstrap_dependencies() -> None:
         raise RuntimeError("git is still unavailable after dependency installation.")
 
 
+def xdg_cache_home(home: Optional[Path] = None) -> Path:
+    home = home or Path.home()
+    return Path(os.path.expanduser(os.environ.get("XDG_CACHE_HOME", str(home / ".cache"))))
+
+
+def fusion_prefix_path() -> Path:
+    paths = fixes.default_paths()
+    config = paths["config"]
+    if config.exists():
+        values = fixes.parse_config_text(config.read_text())
+        configured = values.get("STEAM_COMPAT_DATA_PATH")
+        if configured:
+            return Path(os.path.expanduser(configured))
+    return Path(os.path.expanduser(os.environ.get("FUSION_PREFIX", str(Path.home() / ".fusion360-proton2"))))
+
+
 def existing_install() -> bool:
-    home = Path.home()
-    return (
-        (home / ".local/share/fusion360-linux/launch-fusion.sh").exists()
-        and (home / ".config/fusion360-linux/config").exists()
-    )
+    paths = fixes.default_paths()
+    return (paths["base"] / "launch-fusion.sh").exists() and paths["config"].exists()
 
 
 def existing_artifacts() -> list[Path]:
-    home = Path.home()
+    paths = fixes.default_paths()
     candidates = [
-        home / ".local/share/fusion360-linux",
-        home / ".config/fusion360-linux",
-        home / ".fusion360-proton2",
+        paths["base"],
+        paths["config"].parent,
+        fusion_prefix_path(),
     ]
     return [path for path in candidates if path.exists()]
 
@@ -252,7 +265,7 @@ def run_upstream_installer(source: Path) -> None:
 
 
 def verify_fusion_payload() -> Path:
-    prefix = Path.home() / ".fusion360-proton2"
+    prefix = fusion_prefix_path()
     candidates = list(prefix.glob("pfx/drive_c/users/steamuser/AppData/Local/Autodesk/webdeploy/production/*/Fusion360.exe"))
     if not candidates:
         # Fall back to a bounded search in Autodesk data only.
@@ -268,9 +281,10 @@ def verify_fusion_payload() -> Path:
 
 def install_maintenance_tools(project_root: Path, upstream_sha: str, upstream_ref: str) -> None:
     home = Path.home()
-    data = home / ".local/share/fusion360-linux/arch-fixes"
-    bin_dir = home / ".local/bin"
-    config_dir = home / ".config/fusion360-linux"
+    paths = fixes.default_paths()
+    data = paths["base"] / "arch-fixes"
+    bin_dir = Path(os.path.expanduser(os.environ.get("XDG_BIN_HOME", str(home / ".local/bin"))))
+    config_dir = paths["config"].parent
     data.mkdir(parents=True, exist_ok=True)
     (data / "scripts").mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
@@ -298,7 +312,7 @@ exec bash "{data / 'scripts/collect-diagnostics.sh'}" "$@"
 ''',
         "fusion360-safe-stop": f'''#!/usr/bin/env bash
 set -euo pipefail
-exec "{home / '.local/share/fusion360-linux/runtime-scripts/kill-wine-proton-fusion-nuclear.sh'}"
+exec "{paths['base'] / 'runtime-scripts/kill-wine-proton-fusion-nuclear.sh'}"
 ''',
     }
     for name, content in wrappers.items():
@@ -321,7 +335,7 @@ exec "{home / '.local/share/fusion360-linux/runtime-scripts/kill-wine-proton-fus
         "installed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
     }
     (config_dir / "arch-fixes-provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
-    good("maintenance commands installed in ~/.local/bin")
+    good(f"maintenance commands installed in {bin_dir}")
 
 
 def post_patch_and_verify(project_root: Path, upstream_sha: str, upstream_ref: str) -> None:
@@ -336,7 +350,7 @@ def post_patch_and_verify(project_root: Path, upstream_sha: str, upstream_ref: s
     verify_fusion_payload()
     install_maintenance_tools(project_root, upstream_sha, upstream_ref)
 
-    desktop = Path.home() / ".local/share/applications/fusion360-linux/autodesk-fusion360.desktop"
+    desktop = fixes.default_paths()["callback_desktop"].parent / "autodesk-fusion360.desktop"
     if desktop.exists():
         good("desktop launcher installed")
     else:
@@ -344,7 +358,7 @@ def post_patch_and_verify(project_root: Path, upstream_sha: str, upstream_ref: s
 
 
 def launch_fusion() -> None:
-    launcher = Path.home() / ".local/share/fusion360-linux/launch-fusion.sh"
+    launcher = fixes.default_paths()["base"] / "launch-fusion.sh"
     if not launcher.exists():
         raise RuntimeError("Fusion launcher not found.")
     subprocess.Popen([str(launcher)], start_new_session=True)
@@ -371,7 +385,7 @@ def install(args: argparse.Namespace) -> int:
         )
 
     project_root = Path(__file__).resolve().parent
-    work_base = Path(args.work_base).expanduser() if args.work_base else Path.home() / ".cache/fusion360-linux-arch-fixes"
+    work_base = Path(args.work_base).expanduser() if args.work_base else xdg_cache_home() / "fusion360-linux-arch-fixes"
     upstream_ref = UPSTREAM_DEFAULT_BRANCH if args.latest_upstream else args.upstream_ref
 
     info(f"patch set: {fixes.VERSION}")
@@ -404,7 +418,7 @@ def install(args: argparse.Namespace) -> int:
         print(" Fusion 360 installation complete")
         print("============================================================")
         print("Start from the application menu or:")
-        print("  ~/.local/share/fusion360-linux/launch-fusion.sh")
+        print(f"  {fixes.default_paths()['base'] / 'launch-fusion.sh'}")
         print()
         print("Maintenance commands:")
         print("  fusion360-arch-check")
