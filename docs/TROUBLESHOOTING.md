@@ -92,17 +92,18 @@ when `qtpaths` is missing.
 
 ## 5. Verify the callback path
 
-Handler log:
+The authentication bridge now keeps logs in a private per-user runtime
+directory. On a normal desktop session:
 
 ```bash
-tail -n 80 /tmp/fusion-callback-handler.log
+RUNTIME_DIR="$XDG_RUNTIME_DIR/fusion360-linux"
+tail -n 80 "$RUNTIME_DIR/callback-handler.log"
+tail -n 120 "$RUNTIME_DIR/browser-listener.log"
 ```
 
-Listener log:
-
-```bash
-tail -n 120 /tmp/fusion-browser-listener.log
-```
+If `XDG_RUNTIME_DIR` is unavailable, the fallback is
+`/tmp/fusion360-linux-$UID`. The directory is ownership-checked and restricted
+to the current user.
 
 A callback can legitimately appear as:
 
