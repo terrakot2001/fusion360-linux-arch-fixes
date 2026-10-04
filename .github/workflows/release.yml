@@ -12,17 +12,52 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Verify tag matches project version
+        run: |
+          python - <<'PY'
+          import os
+          import fusion360_arch_fix
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          expected = tag.removeprefix("v")
+          if fusion360_arch_fix.VERSION != expected:
+              raise SystemExit(
+                  f"Tag {tag} does not match fusion360_arch_fix.VERSION={fusion360_arch_fix.VERSION}"
+              )
+          print(f"Release version verified: {tag}")
+          PY
+
+      - name: Run unit tests
+        run: |
+          python -m py_compile fusion360_arch_fix.py fusion360_bootstrap.py
+          python -m unittest discover -s tests -v
 
       - name: Build source archives
         run: |
           version="${GITHUB_REF_NAME}"
-          git archive --format=tar.gz --prefix="fusion360-linux-arch-fixes-${version}/" -o "fusion360-linux-arch-fixes-${version}.tar.gz" HEAD
-          git archive --format=zip --prefix="fusion360-linux-arch-fixes-${version}/" -o "fusion360-linux-arch-fixes-${version}.zip" HEAD
-          sha256sum "fusion360-linux-arch-fixes-${version}.tar.gz" "fusion360-linux-arch-fixes-${version}.zip" > SHA256SUMS.txt
+          git archive --format=tar.gz \
+            --prefix="fusion360-linux-arch-fixes-${version}/" \
+            -o "fusion360-linux-arch-fixes-${version}.tar.gz" HEAD
+          git archive --format=zip \
+            --prefix="fusion360-linux-arch-fixes-${version}/" \
+            -o "fusion360-linux-arch-fixes-${version}.zip" HEAD
+          sha256sum \
+            "fusion360-linux-arch-fixes-${version}.tar.gz" \
+            "fusion360-linux-arch-fixes-${version}.zip" \
+            > SHA256SUMS.txt
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}"             --title "Fusion 360 Linux Arch Fixes ${GITHUB_REF_NAME}"             --generate-notes             "fusion360-linux-arch-fixes-${GITHUB_REF_NAME}.tar.gz"             "fusion360-linux-arch-fixes-${GITHUB_REF_NAME}.zip"             SHA256SUMS.txt
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "Fusion 360 Linux Arch Fixes ${GITHUB_REF_NAME}" \
+            --generate-notes \
+            "fusion360-linux-arch-fixes-${GITHUB_REF_NAME}.tar.gz" \
+            "fusion360-linux-arch-fixes-${GITHUB_REF_NAME}.zip" \
+            SHA256SUMS.txt
