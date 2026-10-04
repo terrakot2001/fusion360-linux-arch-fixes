@@ -92,12 +92,15 @@ jobs:
               browser = (source / "src/runtime/fusion-browser.sh").read_text()
               assert "arguments_redacted=true" in browser
               assert 'chmod 700 "$REQUEST_DIR"' in browser
+              assert '$XDG_RUNTIME_DIR/fusion360-linux' in browser
 
               listener = (source / "src/runtime/fusion-browser-listener.sh").read_text()
               assert "url_first300=" not in listener
               assert "url_last300=" not in listener
               assert "printf 'callback_url=%q" not in listener
               assert 'chmod 700 "$CALLBACK_REQUEST_DIR"' in listener
+              assert '$XDG_RUNTIME_DIR/fusion360-linux' in listener
+              assert ': > "$request_file"' in listener
 
               deps = (source / "src/install/distro/arch.txt").read_text().splitlines()
               assert "tk" in deps
