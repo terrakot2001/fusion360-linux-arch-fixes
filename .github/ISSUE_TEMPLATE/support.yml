@@ -1,0 +1,43 @@
+name: Support question
+description: Ask for help when the bug form does not fit
+title: "[HELP] "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please use the bug form for reproducible failures.
+
+        Never post Autodesk callback URLs, authentication codes, tokens, email addresses, account IDs or private project data.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What are you trying to do, and where are you stuck?
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution
+      placeholder: CachyOS / Arch / EndeavourOS / Manjaro
+    validations:
+      required: true
+
+  - type: input
+    id: proton
+    attributes:
+      label: Proton / Wine version
+      placeholder: GE-Proton...
+    validations:
+      required: true
+
+  - type: textarea
+    id: check
+    attributes:
+      label: Relevant check output
+      description: Paste `python3 fusion360_arch_fix.py check` when applicable.
+      render: text
