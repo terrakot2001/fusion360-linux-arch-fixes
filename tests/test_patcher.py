@@ -171,6 +171,34 @@ mkdir -p "$CALLBACK_PROCESSED_DIR"
         self.assertIn('chmod 700 "$CALLBACK_REQUEST_DIR"', out)
         self.assertNotIn('chmod 700 "$name"', out)
 
+    def test_listener_scrubs_processed_request_contents(self):
+        src = '''open_browser_url() {
+  local request_file="$1"
+  local processed_file="/tmp/browser.done"
+  test -n "$request_file" && { mv "$request_file" "$processed_file"; return 0; }
+  mv "$request_file" "$processed_file"
+}
+send_callback_to_identity_manager() {
+  local request_file="$1"
+  local processed_file="/tmp/callback.done"
+  if false; then
+    mv "$request_file" "$processed_file"
+    return 1
+  fi
+  mv "$request_file" "$processed_file"
+}
+process_browser_requests() {
+  true
+}
+'''
+        out, changed = f.patch_listener_privacy_text(src)
+        self.assertTrue(changed)
+        self.assertIn(': > "$request_file"', out)
+        self.assertIn(
+            '{ : > "$request_file"; mv "$request_file" "$processed_file"; return 0; }',
+            out,
+        )
+
     def test_callback_handler_redacts_arguments(self):
         src = '''  argument_index=0
   for argument in "$@"; do
