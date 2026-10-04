@@ -25,6 +25,17 @@ body:
         - label: I have removed authentication codes, tokens and personal data from logs.
           required: true
 
+  - type: dropdown
+    id: install_mode
+    attributes:
+      label: Installation mode
+      options:
+        - Fresh install using this project's full bootstrap
+        - Repair/update of an existing stonegray/fusion360-linux install
+        - Manual/upstream install with patches applied later
+        - Unknown
+    validations:
+      required: true
   - type: input
     id: distro
     attributes:
