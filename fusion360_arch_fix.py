@@ -381,15 +381,27 @@ CALLBACK_DIR="$RUNTIME_BASE/callback-requests"
 LOG_FILE="$RUNTIME_BASE/callback-handler.log"''',
     )
     text = _secure_shell_log_and_dir(text, "CALLBACK_DIR")
-    for variable in (
-        "KDE_SESSION_VERSION",
-        "WAYLAND_DISPLAY",
-        "DISPLAY",
-        "XDG_RUNTIME_DIR",
-        "DBUS_SESSION_BUS_ADDRESS",
-    ):
-        text = text.replace(
-            f'echo "{variable}=
+
+    text = text.replace(
+        'echo "KDE_SESSION_VERSION=$KDE_SESSION_VERSION"',
+        'echo "KDE_SESSION_VERSION=${KDE_SESSION_VERSION:-}"',
+    )
+    text = text.replace(
+        'echo "WAYLAND_DISPLAY=$WAYLAND_DISPLAY"',
+        'echo "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}"',
+    )
+    text = text.replace(
+        'echo "DISPLAY=$DISPLAY"',
+        'echo "DISPLAY=${DISPLAY:-}"',
+    )
+    text = text.replace(
+        'echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"',
+        'echo "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-}"',
+    )
+    text = text.replace(
+        'echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"',
+        'echo "DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-}"',
+    )
 
     if '  echo "arguments_redacted=true"' not in text:
         start = text.find("  argument_index=0\n")
