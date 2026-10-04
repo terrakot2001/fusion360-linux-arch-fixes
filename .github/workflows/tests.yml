@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Compile
-        run: python -m py_compile fusion360_arch_fix.py
+        run: python -m py_compile fusion360_arch_fix.py fusion360_bootstrap.py
       - name: Unit tests
         run: python -m unittest discover -s tests -v
 
@@ -37,9 +37,9 @@ jobs:
       - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Bash syntax
-        run: bash -n install.sh check.sh publish-to-github.sh scripts/*.sh
+        run: bash -n install.sh install-fresh.sh repair.sh quick-install.sh check.sh publish-to-github.sh scripts/*.sh
       - name: ShellCheck
-        run: shellcheck install.sh check.sh publish-to-github.sh scripts/*.sh
+        run: shellcheck install.sh install-fresh.sh repair.sh quick-install.sh check.sh publish-to-github.sh scripts/*.sh
 
   arch-smoke:
     name: Arch Linux smoke test
@@ -51,9 +51,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compile and unit tests
         run: |
-          python -m py_compile fusion360_arch_fix.py
+          python -m py_compile fusion360_arch_fix.py fusion360_bootstrap.py
           python -m unittest discover -s tests -v
       - name: Shell checks
         run: |
-          bash -n install.sh check.sh publish-to-github.sh scripts/*.sh
-          shellcheck install.sh check.sh publish-to-github.sh scripts/*.sh
+          bash -n install.sh install-fresh.sh repair.sh quick-install.sh check.sh publish-to-github.sh scripts/*.sh
+          shellcheck install.sh install-fresh.sh repair.sh quick-install.sh check.sh publish-to-github.sh scripts/*.sh
