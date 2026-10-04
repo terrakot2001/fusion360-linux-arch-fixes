@@ -64,7 +64,7 @@ Clone this repository and run:
 ```bash
 git clone https://github.com/terrakot2001/fusion360-linux-arch-fixes.git
 cd fusion360-linux-arch-fixes
-./install.sh
+bash install.sh
 ```
 
 Then start Fusion normally:
@@ -78,7 +78,7 @@ The patcher is idempotent: running it again should not duplicate changes.
 ## Check the installation
 
 ```bash
-./check.sh
+bash check.sh
 ```
 
 or:
