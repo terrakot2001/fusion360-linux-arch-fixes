@@ -4,17 +4,52 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  python:
+    name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - name: Python compile check
+          python-version: ${{ matrix.python-version }}
+      - name: Compile
         run: python -m py_compile fusion360_arch_fix.py
       - name: Unit tests
         run: python -m unittest discover -s tests -v
-      - name: Shell syntax
-        run: bash -n install.sh check.sh
+
+  shell:
+    name: Bash and ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Bash syntax
+        run: bash -n install.sh check.sh publish-to-github.sh scripts/*.sh
+      - name: ShellCheck
+        run: shellcheck install.sh check.sh publish-to-github.sh scripts/*.sh
+
+  arch-smoke:
+    name: Arch Linux smoke test
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install test dependencies
+        run: pacman -Syu --noconfirm git python bash shellcheck
+      - uses: actions/checkout@v4
+      - name: Compile and unit tests
+        run: |
+          python -m py_compile fusion360_arch_fix.py
+          python -m unittest discover -s tests -v
+      - name: Shell checks
+        run: |
+          bash -n install.sh check.sh publish-to-github.sh scripts/*.sh
+          shellcheck install.sh check.sh publish-to-github.sh scripts/*.sh
