@@ -57,3 +57,47 @@ jobs:
         run: |
           bash -n install.sh install-fresh.sh repair.sh quick-install.sh check.sh publish-to-github.sh scripts/*.sh
           shellcheck install.sh install-fresh.sh repair.sh quick-install.sh check.sh publish-to-github.sh scripts/*.sh
+
+
+  upstream-layout:
+    name: Pinned upstream patch smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Clone pinned upstream and apply source patches twice
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          import subprocess
+          import tempfile
+
+          import fusion360_bootstrap as b
+
+          root = Path(tempfile.mkdtemp(prefix="fusion-upstream-test-"))
+          source = root / "upstream"
+          try:
+              subprocess.run(["git", "clone", "--no-tags", b.UPSTREAM_URL, str(source)], check=True)
+              subprocess.run(["git", "checkout", "--detach", b.PINNED_UPSTREAM_REF], cwd=source, check=True)
+              b.patch_upstream_tree(source)
+              b.patch_upstream_tree(source)
+
+              process = (source / "share/process.fn").read_text()
+              assert "# Fusion Arch Fixes: prefix-scoped process shutdown" in process
+              assert "pgrep -u \"$user\" -f" not in process.split("# ── Installer-specific kill", 1)[0]
+
+              listener = (source / "src/runtime/fusion-browser-listener.sh").read_text()
+              assert "url_first300=" not in listener
+              assert "url_last300=" not in listener
+              assert "printf 'callback_url=%q" not in listener
+
+              deps = (source / "src/install/distro/arch.txt").read_text().splitlines()
+              assert "tk" in deps
+              assert "python3-tk" not in deps
+              assert "glib2" in deps
+          finally:
+              shutil.rmtree(root, ignore_errors=True)
+          PY
