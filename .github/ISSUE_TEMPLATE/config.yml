@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Read troubleshooting first
+    url: https://github.com/terrakot2001/fusion360-linux-arch-fixes/blob/main/docs/TROUBLESHOOTING.md
+    about: Common login, callback, helper-process and Arch-specific fixes.
+  - name: Security and privacy guidance
+    url: https://github.com/terrakot2001/fusion360-linux-arch-fixes/blob/main/SECURITY.md
+    about: Read this before sharing logs or authentication-related details.
   - name: Upstream stonegray/fusion360-linux
     url: https://github.com/stonegray/fusion360-linux/issues
     about: Use upstream for issues that are clearly unrelated to the Arch/CachyOS fixes in this repository.
