@@ -273,6 +273,10 @@ if [[ -e "$RUNTIME_BASE" && ( -L "$RUNTIME_BASE" || ! -O "$RUNTIME_BASE" ) ]]; t
   exit 1
 fi
 mkdir -p "$RUNTIME_BASE"
+if [[ -L "$RUNTIME_BASE" || ! -O "$RUNTIME_BASE" ]]; then
+  echo "unsafe Fusion runtime directory after creation: $RUNTIME_BASE" >&2
+  exit 1
+fi
 chmod 700 "$RUNTIME_BASE"
 REQUEST_DIR="$RUNTIME_BASE/browser-requests"
 LOG_FILE="$RUNTIME_BASE/browser-bridge.log"''',
@@ -316,6 +320,10 @@ if [[ -e "$RUNTIME_BASE" && ( -L "$RUNTIME_BASE" || ! -O "$RUNTIME_BASE" ) ]]; t
   exit 1
 fi
 mkdir -p "$RUNTIME_BASE"
+if [[ -L "$RUNTIME_BASE" || ! -O "$RUNTIME_BASE" ]]; then
+  echo "unsafe Fusion runtime directory after creation: $RUNTIME_BASE" >&2
+  exit 1
+fi
 chmod 700 "$RUNTIME_BASE"
 BROWSER_REQUEST_DIR="$RUNTIME_BASE/browser-requests"
 BROWSER_PROCESSED_DIR="$RUNTIME_BASE/browser-processed"
@@ -358,6 +366,36 @@ LOG_FILE="$RUNTIME_BASE/browser-listener.log"''',
         "    printf 'callback_url=%q\\n' \"$callback_url\"\n",
         '    echo "callback_url=[redacted; len=${#callback_url}]"\n',
     )
+    # Preserve empty processed markers, but scrub sensitive URL contents
+    # before moving requests into processed directories.
+    browser_start = text.find("open_browser_url() {")
+    callback_start = text.find("send_callback_to_identity_manager() {")
+    if browser_start >= 0 and callback_start > browser_start:
+        browser_section = text[browser_start:callback_start]
+        browser_section = browser_section.replace(
+            '{ mv "$request_file" "$processed_file"; return 0; }',
+            '{ : > "$request_file"; mv "$request_file" "$processed_file"; return 0; }',
+        )
+        browser_section = browser_section.replace(
+            '  mv "$request_file" "$processed_file"\n',
+            '  : > "$request_file"\n  mv "$request_file" "$processed_file"\n',
+        )
+        text = text[:browser_start] + browser_section + text[callback_start:]
+
+    callback_start = text.find("send_callback_to_identity_manager() {")
+    process_start = text.find("process_browser_requests() {", callback_start)
+    if callback_start >= 0 and process_start > callback_start:
+        callback_section = text[callback_start:process_start]
+        callback_section = callback_section.replace(
+            '    mv "$request_file" "$processed_file"\n',
+            '    : > "$request_file"\n    mv "$request_file" "$processed_file"\n',
+        )
+        callback_section = callback_section.replace(
+            '  mv "$request_file" "$processed_file"\n',
+            '  : > "$request_file"\n  mv "$request_file" "$processed_file"\n',
+        )
+        text = text[:callback_start] + callback_section + text[process_start:]
+
     return text, text != original
 
 
@@ -376,6 +414,10 @@ if [[ -e "$RUNTIME_BASE" && ( -L "$RUNTIME_BASE" || ! -O "$RUNTIME_BASE" ) ]]; t
   exit 1
 fi
 mkdir -p "$RUNTIME_BASE"
+if [[ -L "$RUNTIME_BASE" || ! -O "$RUNTIME_BASE" ]]; then
+  echo "unsafe Fusion runtime directory after creation: $RUNTIME_BASE" >&2
+  exit 1
+fi
 chmod 700 "$RUNTIME_BASE"
 CALLBACK_DIR="$RUNTIME_BASE/callback-requests"
 LOG_FILE="$RUNTIME_BASE/callback-handler.log"''',
@@ -721,15 +763,19 @@ def check(paths: Dict[str, Path]) -> int:
     browser = paths["browser"].read_text()
     checks.append(("browser bridge redacts URL arguments", "arguments_redacted=true" in browser and "first200=" not in browser, True))
     checks.append(("browser bridge uses private files", "umask 077" in browser and 'chmod 700 "$REQUEST_DIR"' in browser, True))
+    checks.append(("browser bridge moved off shared /tmp paths", 'REQUEST_DIR="/tmp/fusion360-browser-requests"' not in browser and "RUNTIME_BASE=" in browser, True))
 
     listener = paths["listener"].read_text()
     checks.append(("listener does not log raw callback URLs", "printf 'callback_url=%q" not in listener, True))
     checks.append(("listener does not log browser URL query samples", "url_first300=" not in listener and "url_last300=" not in listener, True))
     checks.append(("listener bridge directories are private", "umask 077" in listener and 'chmod 700 "$CALLBACK_REQUEST_DIR"' in listener, True))
+    checks.append(("listener moved off shared /tmp paths", 'CALLBACK_REQUEST_DIR="/tmp/fusion360-callback-requests"' not in listener and "RUNTIME_BASE=" in listener, True))
+    checks.append(("processed auth requests are scrubbed", ': > "$request_file"' in listener, True))
 
     callback = paths["callback"].read_text()
     checks.append(("callback handler redacts arguments", "arguments_redacted=true" in callback and "printf 'argv[%d]=%q" not in callback, True))
     checks.append(("callback handler uses private files", "umask 077" in callback and 'chmod 700 "$CALLBACK_DIR"' in callback, True))
+    checks.append(("callback handler moved off shared /tmp paths", 'CALLBACK_DIR="/tmp/fusion360-callback-requests"' not in callback and "RUNTIME_BASE=" in callback, True))
 
     if paths["arch_deps"].exists():
         arch = paths["arch_deps"].read_text().splitlines()
