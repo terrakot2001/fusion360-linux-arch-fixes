@@ -168,8 +168,9 @@ body:
       description: |
         Paste only the relevant lines. Useful sources include:
         - latest Neutron Platform AppLogFile
-        - /tmp/fusion-callback-handler.log
-        - /tmp/fusion-browser-listener.log
+        - $XDG_RUNTIME_DIR/fusion360-linux/callback-handler.log
+        - $XDG_RUNTIME_DIR/fusion360-linux/browser-listener.log
+        - fallback when XDG_RUNTIME_DIR is unavailable: /tmp/fusion360-linux-$UID/
 
         Remove callback query strings, codes, tokens, email addresses and account identifiers.
       render: text
