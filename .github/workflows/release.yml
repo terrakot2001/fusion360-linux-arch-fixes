@@ -1,0 +1,28 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build source archives
+        run: |
+          version="${GITHUB_REF_NAME}"
+          git archive --format=tar.gz --prefix="fusion360-linux-arch-fixes-${version}/" -o "fusion360-linux-arch-fixes-${version}.tar.gz" HEAD
+          git archive --format=zip --prefix="fusion360-linux-arch-fixes-${version}/" -o "fusion360-linux-arch-fixes-${version}.zip" HEAD
+          sha256sum "fusion360-linux-arch-fixes-${version}.tar.gz" "fusion360-linux-arch-fixes-${version}.zip" > SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}"             --title "Fusion 360 Linux Arch Fixes ${GITHUB_REF_NAME}"             --generate-notes             "fusion360-linux-arch-fixes-${GITHUB_REF_NAME}.tar.gz"             "fusion360-linux-arch-fixes-${GITHUB_REF_NAME}.zip"             SHA256SUMS.txt
