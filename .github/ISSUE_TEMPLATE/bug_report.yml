@@ -1,0 +1,170 @@
+name: Fusion 360 on Arch/CachyOS bug report
+description: Report a reproducible Fusion 360 issue on Arch Linux or an Arch-based distribution
+title: "[BUG] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting an issue.
+
+        This project is an **unofficial compatibility layer** for `stonegray/fusion360-linux` on Arch-family distributions.
+
+        **Privacy warning:** do not post Autodesk callback URLs, access tokens, account IDs, email addresses, private project data, or other secrets. Sanitize logs before attaching them.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I am using Arch Linux or an Arch-based distribution.
+          required: true
+        - label: I have run `python3 fusion360_arch_fix.py check`.
+          required: true
+        - label: I have removed authentication codes, tokens and personal data from logs.
+          required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and version
+      description: Example: CachyOS 2026.10, Arch Linux rolling, EndeavourOS
+      placeholder: CachyOS ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: desktop
+    attributes:
+      label: Desktop environment
+      options:
+        - KDE Plasma 6
+        - GNOME
+        - XFCE
+        - Cinnamon
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: display
+    attributes:
+      label: Display protocol
+      options:
+        - Wayland
+        - X11
+        - Unknown
+    validations:
+      required: true
+
+  - type: dropdown
+    id: gpu_vendor
+    attributes:
+      label: GPU vendor
+      options:
+        - NVIDIA
+        - AMD
+        - Intel
+        - Hybrid / multiple GPUs
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU model and driver
+      description: Example: NVIDIA RTX 3080 Ti, proprietary driver 590.xx
+      placeholder: GPU model, driver version
+    validations:
+      required: true
+
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel
+      description: Output of `uname -r`
+      placeholder: 6.x.x-...
+    validations:
+      required: true
+
+  - type: input
+    id: proton
+    attributes:
+      label: Proton / Wine version
+      description: Example: GE-Proton10-32
+      placeholder: GE-Proton...
+    validations:
+      required: true
+
+  - type: input
+    id: fusion_linux
+    attributes:
+      label: stonegray/fusion360-linux version or commit
+      description: Commit SHA, tag, or approximate install/update date if unknown
+      placeholder: commit/tag/date
+    validations:
+      required: true
+
+  - type: input
+    id: patcher
+    attributes:
+      label: fusion360-linux-arch-fixes version
+      description: Output of `python3 fusion360_arch_fix.py --version`
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: check_output
+    attributes:
+      label: Patcher check output
+      description: Paste the complete output of `python3 fusion360_arch_fix.py check`
+      render: text
+      placeholder: |
+        Fusion 360 Linux Arch Fixes ...
+        [OK] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+      placeholder: Fusion starts, then...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Give the shortest reliable sequence that triggers the issue.
+      placeholder: |
+        1. Start Fusion with ...
+        2. Click ...
+        3. Sign in ...
+        4. Error appears
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant sanitized logs
+      description: |
+        Paste only the relevant lines. Useful sources include:
+        - latest Neutron Platform AppLogFile
+        - /tmp/fusion-callback-handler.log
+        - /tmp/fusion-browser-listener.log
+
+        Remove callback query strings, codes, tokens, email addresses and account identifiers.
+      render: text
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Screenshots, recent changes, GPU/Vulkan warnings, or anything else that may help.
