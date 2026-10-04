@@ -45,4 +45,4 @@ trap cleanup EXIT
 
 git clone --depth 1 --branch "$REF" "$REPO_URL" "$tmp/repo"
 cd "$tmp/repo"
-exec bash install.sh "$@"
+bash install.sh "$@"
