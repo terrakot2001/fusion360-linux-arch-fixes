@@ -121,6 +121,16 @@ def existing_install() -> bool:
     )
 
 
+def existing_artifacts() -> list[Path]:
+    home = Path.home()
+    candidates = [
+        home / ".local/share/fusion360-linux",
+        home / ".config/fusion360-linux",
+        home / ".fusion360-proton2",
+    ]
+    return [path for path in candidates if path.exists()]
+
+
 def choose_browser() -> Optional[str]:
     for name in (
         "chromium",
@@ -330,13 +340,22 @@ def launch_fusion() -> None:
 
 
 def install(args: argparse.Namespace) -> int:
-    ensure_host()
+    if not args.prepare_only:
+        ensure_host()
     ensure_bootstrap_dependencies()
 
-    if existing_install():
+    artifacts = existing_artifacts()
+    if not args.prepare_only and existing_install():
         return die(
             "An existing Fusion Linux installation was detected. "
             "Use 'bash repair.sh' or the smart 'bash install.sh' instead of a fresh install."
+        )
+    if not args.prepare_only and artifacts:
+        details = ", ".join(str(path) for path in artifacts)
+        return die(
+            "A partial/previous Fusion Linux installation was detected. "
+            "For safety the fresh installer will not overwrite it automatically. "
+            f"Existing paths: {details}"
         )
 
     project_root = Path(__file__).resolve().parent
