@@ -6,7 +6,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 OUT="${1:-fusion360-diagnostics-$STAMP.txt}"
 
 sanitize_home() {
-  sed "s#${HOME//\/\\}#~#g"
+  sed "s|$HOME|~|g"
 }
 
 {
