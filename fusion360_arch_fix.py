@@ -51,6 +51,7 @@ def default_paths(home: Optional[Path] = None) -> Dict[str, Path]:
         "cleanup": base / "share/cleanup.fn",
         "process": base / "share/process.fn",
         "daemon": base / "share/daemon.fn",
+        "browser": base / "runtime-scripts/fusion-browser.sh",
         "listener": base / "runtime-scripts/fusion-browser-listener.sh",
         "callback": base / "runtime-scripts/fusion-callback-handler.sh",
         "arch_deps": base / "src/install/distro/arch.txt",
@@ -239,8 +240,68 @@ kill_fusion_processes() {
     return text[:line_start] + function + text[end_line_start:], True
 
 
+def _secure_shell_log_and_dir(text: str, dir_var: str) -> str:
+    if "umask 077" not in text:
+        text = text.replace("set -euo pipefail\n", "set -euo pipefail\numask 077\n", 1)
+
+    mkdir_line = f'mkdir -p "${dir_var}"'
+    secure_block = (
+        mkdir_line
+        + f'\nchmod 700 "${dir_var}" 2>/dev/null || true'
+        + '\ntouch "$LOG_FILE"'
+        + '\nchmod 600 "$LOG_FILE" 2>/dev/null || true'
+    )
+    if f'chmod 700 "${dir_var}"' not in text and mkdir_line in text:
+        text = text.replace(mkdir_line, secure_block, 1)
+    return text
+
+
+def patch_browser_writer_privacy_text(text: str) -> Tuple[str, bool]:
+    original = text
+    text = _secure_shell_log_and_dir(text, "REQUEST_DIR")
+
+    if '  echo "arguments_redacted=true"' not in text:
+        start = text.find("  argument_index=0\n")
+        end_token = '  echo "--- env dump ---"'
+        end = text.find(end_token, start)
+        if start < 0 or end < 0:
+            raise ValueError("browser bridge: argument logging section not found")
+        replacement = '''  echo "arguments_redacted=true"
+  argument_index=0
+  for argument in "$@"; do
+    echo "argv[${argument_index}]=[redacted]"
+    echo "argv[${argument_index}]_len=${#argument}"
+    argument_index=$((argument_index + 1))
+  done
+
+'''
+        text = text[:start] + replacement + text[end:]
+    return text, text != original
+
+
 def patch_listener_privacy_text(text: str) -> Tuple[str, bool]:
     original = text
+    if "umask 077" not in text:
+        text = text.replace("set -euo pipefail\n", "set -euo pipefail\numask 077\n", 1)
+
+    dirs = [
+        "BROWSER_REQUEST_DIR",
+        "BROWSER_PROCESSED_DIR",
+        "CALLBACK_REQUEST_DIR",
+        "CALLBACK_PROCESSED_DIR",
+    ]
+    mkdir_block = (
+        'mkdir -p "$BROWSER_REQUEST_DIR"\n'
+        'mkdir -p "$BROWSER_PROCESSED_DIR"\n'
+        'mkdir -p "$CALLBACK_REQUEST_DIR"\n'
+        'mkdir -p "$CALLBACK_PROCESSED_DIR"'
+    )
+    if 'chmod 700 "$BROWSER_REQUEST_DIR"' not in text and mkdir_block in text:
+        secure = mkdir_block + "\n" + "\n".join(
+            f'chmod 700 "${{name}}" 2>/dev/null || true' for name in dirs
+        ) + '\ntouch "$LOG_FILE"\nchmod 600 "$LOG_FILE" 2>/dev/null || true'
+        text = text.replace(mkdir_block, secure, 1)
+
     text = text.replace(
         "    printf 'url=%q\\n' \"$url\"\n"
         '    echo "url_first300=${url:0:300}"\n'
@@ -259,17 +320,17 @@ def patch_listener_privacy_text(text: str) -> Tuple[str, bool]:
 
 
 def patch_callback_privacy_text(text: str) -> Tuple[str, bool]:
-    marker = '  echo "arguments_redacted=true"'
-    if marker in text:
-        return text, False
+    original = text
+    text = _secure_shell_log_and_dir(text, "CALLBACK_DIR")
 
-    start = text.find("  argument_index=0\n")
-    end_token = '  echo "--- env dump ---"'
-    end = text.find(end_token, start)
-    if start < 0 or end < 0:
-        raise ValueError("callback handler: argument logging section not found")
+    if '  echo "arguments_redacted=true"' not in text:
+        start = text.find("  argument_index=0\n")
+        end_token = '  echo "--- env dump ---"'
+        end = text.find(end_token, start)
+        if start < 0 or end < 0:
+            raise ValueError("callback handler: argument logging section not found")
 
-    replacement = '''  echo "arguments_redacted=true"
+        replacement = '''  echo "arguments_redacted=true"
   argument_index=0
   for argument in "$@"; do
     echo "argv[${argument_index}]=[redacted]"
@@ -278,7 +339,8 @@ def patch_callback_privacy_text(text: str) -> Tuple[str, bool]:
   done
 
 '''
-    return text[:start] + replacement + text[end:], True
+        text = text[:start] + replacement + text[end:]
+    return text, text != original
 
 
 def patch_upstream_install_text(text: str) -> Tuple[str, bool]:
@@ -443,7 +505,7 @@ def syntax_check(files: Iterable[Path]) -> bool:
 def apply(paths: Dict[str, Path]) -> int:
     required = [
         paths["config"], paths["launcher"], paths["cleanup"], paths["process"],
-        paths["daemon"], paths["listener"], paths["callback"],
+        paths["daemon"], paths["browser"], paths["listener"], paths["callback"],
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
@@ -454,7 +516,7 @@ def apply(paths: Dict[str, Path]) -> int:
         paths,
         [
             paths["config"], paths["launcher"], paths["cleanup"], paths["process"],
-            paths["daemon"], paths["listener"], paths["callback"], paths["arch_deps"],
+            paths["daemon"], paths["browser"], paths["listener"], paths["callback"], paths["arch_deps"],
         ],
     )
     log(f"Backup: {backup}")
@@ -486,9 +548,13 @@ def apply(paths: Dict[str, Path]) -> int:
     write_if_changed(paths["daemon"], new)
     ok("toolwindow fixer safeguards")
 
+    new, _ = patch_browser_writer_privacy_text(paths["browser"].read_text())
+    write_if_changed(paths["browser"], new)
+    ok("browser request log redaction and private bridge files")
+
     new, _ = patch_listener_privacy_text(paths["listener"].read_text())
     write_if_changed(paths["listener"], new)
-    ok("browser/callback log redaction")
+    ok("browser/callback log redaction and private bridge directories")
 
     new, _ = patch_callback_privacy_text(paths["callback"].read_text())
     write_if_changed(paths["callback"], new)
@@ -514,7 +580,7 @@ def apply(paths: Dict[str, Path]) -> int:
 
     shell_files = [
         paths["launcher"], paths["cleanup"], paths["process"], paths["daemon"],
-        paths["listener"], paths["callback"],
+        paths["browser"], paths["listener"], paths["callback"],
     ]
     if not syntax_check(shell_files):
         fail("syntax check failed; use restore to revert the backup")
@@ -529,13 +595,13 @@ def apply(paths: Dict[str, Path]) -> int:
 def check(paths: Dict[str, Path]) -> int:
     checks: List[Tuple[str, bool, bool]] = []  # name, pass, essential
 
-    for key in ["config", "launcher", "cleanup", "process", "daemon", "listener", "callback"]:
+    for key in ["config", "launcher", "cleanup", "process", "daemon", "browser", "listener", "callback"]:
         checks.append((f"exists: {paths[key]}", paths[key].exists(), True))
     if not all(
         p.exists()
         for p in [
             paths["config"], paths["launcher"], paths["cleanup"], paths["process"],
-            paths["daemon"], paths["listener"], paths["callback"],
+            paths["daemon"], paths["browser"], paths["listener"], paths["callback"],
         ]
     ):
         for name, status, _ in checks:
@@ -568,12 +634,18 @@ def check(paths: Dict[str, Path]) -> int:
     checks.append(("unscoped duplicate toolwindow spawn removed", 'nohup "$wine_bin" "$FUSION_TOOLWINDOW_FIXER" &>/dev/null &' not in daemon, True))
     checks.append(("toolwindow health restart honors enable flag", '_is_enabled "$FUSION_ENABLE_TOOLWINDOW_FIXER" && ! daemon_check_running "toolwindow-fixer"' in daemon, True))
 
+    browser = paths["browser"].read_text()
+    checks.append(("browser bridge redacts URL arguments", "arguments_redacted=true" in browser and "first200=" not in browser, True))
+    checks.append(("browser bridge uses private files", "umask 077" in browser and 'chmod 700 "$REQUEST_DIR"' in browser, True))
+
     listener = paths["listener"].read_text()
     checks.append(("listener does not log raw callback URLs", "printf 'callback_url=%q" not in listener, True))
     checks.append(("listener does not log browser URL query samples", "url_first300=" not in listener and "url_last300=" not in listener, True))
+    checks.append(("listener bridge directories are private", "umask 077" in listener and 'chmod 700 "$CALLBACK_REQUEST_DIR"' in listener, True))
 
     callback = paths["callback"].read_text()
     checks.append(("callback handler redacts arguments", "arguments_redacted=true" in callback and "printf 'argv[%d]=%q" not in callback, True))
+    checks.append(("callback handler uses private files", "umask 077" in callback and 'chmod 700 "$CALLBACK_DIR"' in callback, True))
 
     if paths["arch_deps"].exists():
         arch = paths["arch_deps"].read_text().splitlines()
